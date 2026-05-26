@@ -116,6 +116,7 @@ export interface ReportStats {
   averageResponseTimeMinutes: number;
   aiResponseCount: number;
   aiHandoffCount: number;
+  slaComplianceRate?: number;
   byChannel: Record<ChannelType, number>;
   byAgent: Record<string, { name: string; count: number; closed: number }>;
   byDay: Array<{ date: string; count: number }>;

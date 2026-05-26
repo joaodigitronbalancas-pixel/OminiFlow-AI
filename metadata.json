@@ -1,6 +1,6 @@
 {
-  "name": "Omnichannel SaaS",
-  "description": "Pluzapp-style omnichannel customer service SaaS platform with integrated Gemini AI agent, real-time inbox dashboard, and multi-tenant management.",
+  "name": "OmniFlow AI",
+  "description": "Premium Omnichannel Customer Service SaaS platform (style Zendesk/HubSpot/Pluzapp) with advanced AI automation, real-time chats, and multi-tenant management.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

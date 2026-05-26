@@ -31,6 +31,7 @@ export default function Inbox({
   const [inputText, setInputText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusTab, setStatusTab] = useState<"open" | "pending" | "closed">("open");
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   
   // Modals / Dropdowns togglers
   const [showTagModal, setShowTagModal] = useState(false);
@@ -40,6 +41,24 @@ export default function Inbox({
   const [isTyping, setIsTyping] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // SLA alert helper: returns badge, color and indicator
+  const getSLAIndicator = (conv: Conversation) => {
+    if (conv.status === "closed") {
+      return { dot: "🟢", label: "Resolvido", textClass: "text-[#22c55e]", bgClass: "bg-emerald-950/40 border-emerald-900/40" };
+    }
+    
+    // Calculate elapsed minutes since last update (e.g. client waiting time)
+    const minutesElapsed = Math.floor((Date.now() - new Date(conv.updatedAt).getTime()) / (1000 * 60));
+    
+    if (minutesElapsed >= 15) {
+      return { dot: "🔴", label: "Atrasado", textClass: "text-rose-450 font-black", bgClass: "bg-rose-950/30 border-rose-900/30 animate-pulse" };
+    } else if (minutesElapsed >= 5) {
+      return { dot: "🟡", label: "Alerta", textClass: "text-amber-500 font-bold", bgClass: "bg-amber-950/20 border-amber-900/20" };
+    } else {
+      return { dot: "🟢", label: "No prazo", textClass: "text-[#22c55e] font-bold", bgClass: "bg-emerald-950/30 border-emerald-900/20" };
+    }
+  };
 
   // Auto scroll messages to bottom
   const scrollToBottom = () => {
@@ -80,12 +99,13 @@ export default function Inbox({
 
   const activeConv = conversations.find(c => c.id === selectedConvId);
 
-  // Filter conversations based on current active tab and query
+  // Filter conversations based on current active tab, query, and selective tags
   const filteredConversations = conversations.filter(c => {
     const matchesStatus = c.status === statusTab;
     const matchesSearch = c.contactName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           c.contactIdentifier.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
+    const matchesTag = !selectedTagFilter || c.tags.includes(selectedTagFilter);
+    return matchesStatus && matchesSearch && matchesTag;
   });
 
   // Action: Send Message and simulate Typing Indicator + Auto Answer ticks
@@ -263,7 +283,7 @@ export default function Inbox({
       <div className="w-80 flex flex-col border-r border-[#1e293b] bg-[#111827] h-full shrink-0">
         
         {/* Contact list search */}
-        <div className="p-4 border-b border-[#1e293b] bg-[#111827]">
+        <div className="p-4 border-b border-[#1e293b] bg-[#111827] space-y-3">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -273,6 +293,36 @@ export default function Inbox({
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-[#1e293b] text-white border border-[#334155] hover:border-slate-600 focus:border-[#6366f1] outline-none rounded-xl text-xs transition-all"
             />
+          </div>
+
+          {/* Quick filter by tag */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              onClick={() => setSelectedTagFilter(null)}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-black tracking-wider uppercase border shrink-0 transition-all cursor-pointer ${
+                !selectedTagFilter 
+                  ? "bg-[#6366f1] text-white border-transparent shadow shadow-[#6366f1]/20 font-extrabold" 
+                  : "bg-transparent text-slate-400 border-[#334155] hover:text-white"
+              }`}
+            >
+              Sem Filtro
+            </button>
+            {tags.map(tg => {
+              const isSelected = selectedTagFilter === tg.id;
+              return (
+                <button
+                  key={tg.id}
+                  onClick={() => setSelectedTagFilter(isSelected ? null : tg.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[9px] font-extrabold tracking-wide uppercase border shrink-0 transition-all cursor-pointer ${
+                    isSelected 
+                      ? "bg-[#6366f1] text-white border-transparent shadow shadow-[#6366f1]/20" 
+                      : "bg-transparent text-slate-450 border-[#334155] hover:text-slate-200"
+                  }`}
+                >
+                  {tg.name.split(" ")[0]}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -329,6 +379,7 @@ export default function Inbox({
           ) : (
             filteredConversations.map(conv => {
               const isSelected = selectedConvId === conv.id;
+              const slaInfo = getSLAIndicator(conv);
               return (
                 <div
                   key={conv.id}
@@ -356,7 +407,12 @@ export default function Inbox({
                     {/* Meta information */}
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start mb-0.5">
-                        <h4 className="text-xs font-bold text-white truncate">{conv.contactName}</h4>
+                        <h4 className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                          {conv.contactName}
+                          <span className="text-[10px]" title={`SLA: ${slaInfo.label}`}>
+                            {slaInfo.dot}
+                          </span>
+                        </h4>
                         <span className="text-[9px] text-slate-500 font-mono shrink-0">
                           {new Date(conv.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
@@ -429,20 +485,25 @@ export default function Inbox({
                   referrerPolicy="no-referrer"
                 />
                 <div>
-                  <h3 className="text-xs font-bold text-white">{activeConv.contactName}</h3>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
-                      {activeConv.contactIdentifier}
+                  <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                    {activeConv.contactName}
+                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase border leading-none tracking-wider shrink-0 ${getSLAIndicator(activeConv).bgClass} ${getSLAIndicator(activeConv).textClass}`}>
+                      {getSLAIndicator(activeConv).label}
                     </span>
+                  </h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
+                        {activeConv.contactIdentifier}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Handover queue and dispatch panel */}
-              <div className="flex items-center gap-2">
-                {/* AI Toggle slider */}
-                <button
-                  onClick={() => handleToggleAI(activeConv.aiActive)}
+                {/* Handover queue and dispatch panel */}
+                <div className="flex items-center gap-2">
+                  {/* AI Toggle slider */}
+                  <button
+                    onClick={() => handleToggleAI(activeConv.aiActive)}
                   className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold tracking-tight uppercase flex items-center gap-1.5 transition-all cursor-pointer ${
                     activeConv.aiActive 
                       ? "bg-violet-600 hover:bg-violet-700 text-white border-violet-600 shadow-md shadow-violet-600/15" 
