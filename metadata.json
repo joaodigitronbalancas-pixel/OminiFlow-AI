@@ -1,0 +1,6 @@
+{
+  "name": "Omnichannel SaaS",
+  "description": "Pluzapp-style omnichannel customer service SaaS platform with integrated Gemini AI agent, real-time inbox dashboard, and multi-tenant management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
